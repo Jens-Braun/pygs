@@ -1,0 +1,15 @@
+[package]
+name = "pygs"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+pyo3 = { version = "0.24", features = ["indexmap"] }
+pyo3-log = "0.12"
+fastrand = "2"
+peg = "0.8"
+self_cell = "1.2"
+libloading = "0.8"
+num-traits = "0.2"
+thiserror = "2"
+indexmap = "2"
