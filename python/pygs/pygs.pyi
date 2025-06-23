@@ -19,8 +19,10 @@ class GoSamProcess:
 
     def __new__(cls,
         coupling_orders: dict[str, int],
-        model: Model, nlo_coupling: Optional[str] = None,
-        options: Optional[dict[str, str]] = None
+        model: Model,
+        nlo_coupling: Optional[str] = None,
+        contract_options: Optional[dict[str, str]] = None,
+        gosam_options: Optional[dict[str, str]] = None
     ) -> GoSamProcess:
         "Create a new GoSam process"
 

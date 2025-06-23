@@ -54,7 +54,8 @@ impl From<BLHAError> for PyErr {
 pub(crate) struct GoSamProcess {
     coupling_orders: IndexMap<String, usize>,
     nlo_coupling: Option<String>,
-    options: Option<IndexMap<String, String>>,
+    contract_options: Option<IndexMap<String, String>>,
+    gosam_options: Option<IndexMap<String, String>>,
     subprocesses: Vec<Subprocess>,
     model: Model,
     olp: Option<OneLoopProvider>,
@@ -63,7 +64,10 @@ pub(crate) struct GoSamProcess {
 impl Hash for GoSamProcess {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.coupling_orders.iter().collect::<Vec<_>>().hash(state);
-        if let Some(ref opts) = self.options {
+        if let Some(ref opts) = self.contract_options {
+            opts.iter().collect::<Vec<_>>().hash(state);
+        }
+        if let Some(ref opts) = self.gosam_options {
             opts.iter().collect::<Vec<_>>().hash(state);
         }
         self.nlo_coupling.hash(state);
@@ -73,25 +77,39 @@ impl Hash for GoSamProcess {
 
 impl GoSamProcess {
     fn write_order(&self) -> Result<(), GoSamError> {
-        let order = Order {
-            coupling_orders: self.coupling_orders.clone(),
-            model: &self.model,
-            nlo_coupling: self.nlo_coupling.clone(),
-            subprocesses: &self.subprocesses,
-            options: IndexMap::from([(
+        let options = if let Some(ref contract_options) = self.contract_options {
+            let mut tmp = contract_options.clone();
+            tmp.insert(
                 "CorrectionType".to_owned(),
                 if let Some(ref nlo) = self.nlo_coupling {
                     nlo.clone()
                 } else {
                     "QCD".to_owned()
                 },
-            )]),
+            );
+            tmp
+        } else {
+            IndexMap::from([(
+                "CorrectionType".to_owned(),
+                if let Some(ref nlo) = self.nlo_coupling {
+                    nlo.clone()
+                } else {
+                    "QCD".to_owned()
+                },
+            )])
+        };
+        let order = Order {
+            coupling_orders: self.coupling_orders.clone(),
+            model: &self.model,
+            nlo_coupling: self.nlo_coupling.clone(),
+            subprocesses: &self.subprocesses,
+            options,
         };
         crate::blha::order_writer::write_order_file(
             &order,
             &std::env::current_dir()?.join("gosam.olp"),
         )?;
-        if let Some(ref options) = self.options {
+        if let Some(ref options) = self.gosam_options {
             let mut config = std::fs::File::create(&std::env::current_dir()?.join("gosam.in"))?;
             for (option, value) in options.iter() {
                 writeln!(config, "{}={}", option, value)?;
@@ -160,27 +178,39 @@ impl GoSamProcess {
 #[pymethods]
 impl GoSamProcess {
     #[new]
-    #[pyo3(signature = (coupling_orders, model, nlo_coupling = None, options = None))]
+    #[pyo3(signature = (coupling_orders, model, nlo_coupling = None, contract_options = None, gosam_options = None))]
     fn new(
         coupling_orders: IndexMap<String, usize>,
         model: Model,
         nlo_coupling: Option<String>,
-        options: Option<IndexMap<String, Bound<'_, PyAny>>>,
+        contract_options: Option<IndexMap<String, Bound<'_, PyAny>>>,
+        gosam_options: Option<IndexMap<String, Bound<'_, PyAny>>>,
     ) -> PyResult<Self> {
-        let opts;
-        if let Some(options) = options {
+        let contract_opts;
+        if let Some(options) = contract_options {
             let mut map = IndexMap::with_capacity(options.len());
             for (key, value) in options.into_iter() {
                 map.insert(key, value.str()?.extract::<String>()?);
             }
-            opts = Some(map);
+            contract_opts = Some(map);
         } else {
-            opts = None;
+            contract_opts = None;
+        }
+        let gs_opts;
+        if let Some(options) = gosam_options {
+            let mut map = IndexMap::with_capacity(options.len());
+            for (key, value) in options.into_iter() {
+                map.insert(key, value.str()?.extract::<String>()?);
+            }
+            gs_opts = Some(map);
+        } else {
+            gs_opts = None;
         }
         Ok(GoSamProcess {
             coupling_orders,
             nlo_coupling,
-            options: opts,
+            contract_options: contract_opts,
+            gosam_options: gs_opts,
             subprocesses: vec![],
             model,
             olp: None,
