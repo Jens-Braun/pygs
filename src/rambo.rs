@@ -1,21 +1,30 @@
 use crate::util::FloatRandom;
 use num_traits::{Float, FloatConst};
 
+pub enum Scale<F: Float> {
+    Fixed(F),
+    Uniform { min: F, max: F },
+}
+
 /// Generic RAMBO phase-space generator (10.1016/0010-4655(86)90119-0) based on the Fortran implementation of GoSam.
 pub(crate) fn rambo<F: Float + FloatConst>(
-    scale_sq: F,
+    s: Scale<F>,
     masses: &[F],
     n_in: usize,
     rng: &mut impl FloatRandom<F>,
-) -> Vec<[F; 4]> {
+) -> (F, Vec<[F; 4]>) {
+    let s = match s {
+        Scale::Fixed(s) => s,
+        Scale::Uniform { min, max } => rng.range(min, max),
+    };
     let two: F = F::one() + F::one();
     let mut vecs = vec![[F::zero(); 4]; masses.len()];
     if n_in == 2 {
         let m1_sq = masses[0] * masses[0];
         let m2_sq = masses[1] * masses[1];
-        let sqrt_s = two * scale_sq.sqrt();
-        let a = (scale_sq + m1_sq - m2_sq) / sqrt_s;
-        let b = (scale_sq - m1_sq + m2_sq) / sqrt_s;
+        let two_sqrt_s = two * s.sqrt();
+        let a = (s + m1_sq - m2_sq) / two_sqrt_s;
+        let b = (s - m1_sq + m2_sq) / two_sqrt_s;
         vecs[0][0] = a;
         vecs[0][3] = (a * a - m1_sq).sqrt();
         vecs[1][0] = b;
@@ -54,7 +63,7 @@ pub(crate) fn rambo<F: Float + FloatConst>(
         let b = [-m_inv * v[1], -m_inv * v[2], -m_inv * v[3]];
         let gamma = (F::one() + b[0] * b[0] + b[1] * b[1] + b[2] * b[2]).sqrt();
         let a = (F::one() + gamma).recip();
-        let x = m_inv * scale_sq.sqrt();
+        let x = m_inv * s.sqrt();
         for i in 0..n {
             let bq = b[0] * q[i][1] + b[1] * q[i][2] + b[2] * q[i][3];
             let m = n_in + i;
@@ -64,7 +73,7 @@ pub(crate) fn rambo<F: Float + FloatConst>(
             vecs[m][2] = x * (b[1] * c + q[i][2]);
             vecs[m][3] = x * (b[2] * c + q[i][3]);
         }
-        let x = newton(scale_sq, &vecs[n_in..], &masses[n_in..]);
+        let x = newton(s, &vecs[n_in..], &masses[n_in..]);
         for i in n_in..vecs.len() {
             vecs[i][0] = (masses[i] * masses[i] + x * x * vecs[i][0] * vecs[i][0]).sqrt();
             vecs[i][1] = x * vecs[i][1];
@@ -80,7 +89,7 @@ pub(crate) fn rambo<F: Float + FloatConst>(
         }
     }
 
-    return vecs;
+    return (s, vecs);
 }
 
 #[inline]
@@ -92,7 +101,8 @@ fn newton<F: Float>(s: F, vecs: &[[F; 4]], masses: &[F]) -> F {
     let mut fx = neg_sqrt_s;
 
     let mut x = two.recip();
-    while fx.abs() > prec {
+    let mut n_iter = 0;
+    while fx.abs() > prec && n_iter < 50 {
         fx = neg_sqrt_s;
         let mut fpx = F::zero();
         let x_sq = x * x;
@@ -104,6 +114,7 @@ fn newton<F: Float>(s: F, vecs: &[[F; 4]], masses: &[F]) -> F {
         }
         fpx = fpx + x;
         x = x - fx / fpx;
+        n_iter += 1;
     }
     return x;
 }
@@ -118,7 +129,7 @@ mod tests {
         let mut rng = Rng::new();
         for n in 0..N_ITER_TEST {
             let masses = vec![0.0, 0.0, 125.0, 125.0, 0.0, 0.0];
-            let vecs = rambo(500.0_f64.powi(2), &masses, 2, &mut rng);
+            let (_, vecs) = rambo(Scale::Fixed(500.0_f64.powi(2)), &masses, 2, &mut rng);
             let e_ref = 0.5 * vecs.iter().map(|p| p[0].abs()).sum::<f64>();
             for i in 1..=3 {
                 let prec = vecs.iter().map(|p| p[i]).sum::<f64>().abs() / e_ref;

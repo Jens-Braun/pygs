@@ -1,4 +1,5 @@
 from __future__ import annotations
+from enum import Enum
 from typing import Any, Optional
 from math import atan
 
@@ -51,21 +52,22 @@ class GoSamProcess:
             list of floats with length depending on the amplitude type, see BLHA2 standard (1308.3462) for details
         """
 
-    def sample(self, id: int, scale: float, n_points: int) -> list[tuple[list[list[float]], list[float]]]:
+    def sample(self, id: int, s: Scale, n_points: int, scale: Optional[float] = None) -> list[tuple[list[list[float]], list[float]]]:
         """
         Evaluate subprocess `id` with energy scale `scale` at `n_points` random phase-space points (constructed by a
         RAMBO generator).
 
         Parameters:
             id: identifier of the subprocess
-            scale: energy scale to evaluate at
+            s: center of mass energy squared of the sampled points
             n_points: number of points to sample
+            scale: Renormalization scale to evaluate the amplitude at (default: center of mass energy)
 
         Returns:
             list of sampled points, where each entry contains the phase space point and the result. See also: [eval]
         """
 
-class AmplitudeType:
+class AmplitudeType(Enum):
     """
     The BLHA2 amplitude type. Possible values:
 
@@ -76,9 +78,19 @@ class AmplitudeType:
     - Loop
     - LoopInduced
     """
-    Tree: Any
-    scTree: Any
-    scTree2: Any
-    ccTree: Any
-    Loop: Any
-    LoopInduced: Any
+    Tree: ...
+    scTree: ...
+    scTree2: ...
+    ccTree: ...
+    Loop: ...
+    LoopInduced: ...
+
+class Scale(Enum):
+    """
+    Type of energy scale. Possible values:
+
+    - Fixed: fixed energy scale
+    - Uniform: uniformly sampled energy scale in some range
+    """
+    Fixed: ...
+    Uniform:...

@@ -3,12 +3,19 @@ use num_traits::Float;
 
 pub(crate) trait FloatRandom<F: Float> {
     fn generate(&mut self) -> F;
+
+    fn range(&mut self, min: F, max: F) -> F;
 }
 
 impl FloatRandom<f64> for Rng {
     #[inline]
     fn generate(&mut self) -> f64 {
         return self.f64();
+    }
+
+    #[inline]
+    fn range(&mut self, min: f64, max: f64) -> f64 {
+        return min + self.f64() * (max - min);
     }
 }
 

@@ -1,7 +1,7 @@
 use crate::{
     blha::{AmplitudeType, OneLoopProvider, Order, Subprocess, error::BLHAError},
     model::Model,
-    rambo::rambo,
+    rambo::{Scale, rambo},
 };
 use indexmap::IndexMap;
 use pyo3::types::IntoPyDict;
@@ -46,6 +46,26 @@ impl From<BLHAError> for PyErr {
             BLHAError::ContractError(_) => PySyntaxError::new_err(err.to_string()),
             BLHAError::ParseError(_, _) => PySyntaxError::new_err(err.to_string()),
             BLHAError::LibraryError(_) => PyIOError::new_err(err.to_string()),
+        }
+    }
+}
+
+#[pyclass]
+#[pyo3(name = "Scale")]
+#[derive(Clone)]
+pub(crate) enum PyScale {
+    Fixed(f64),
+    Uniform { min: f64, max: f64 },
+}
+
+impl From<&PyScale> for Scale<f64> {
+    fn from(value: &PyScale) -> Self {
+        match value {
+            PyScale::Fixed(s) => Scale::Fixed(*s),
+            PyScale::Uniform { min, max } => Scale::Uniform {
+                min: *min,
+                max: *max,
+            },
         }
     }
 }
@@ -268,12 +288,14 @@ impl GoSamProcess {
         }
     }
 
+    #[pyo3(signature = (id, s, n_points, scale = None))]
     fn sample(
         &self,
         py: Python<'_>,
         id: usize,
-        scale: f64,
+        s: PyScale,
         n_points: usize,
+        scale: Option<f64>,
     ) -> PyResult<Vec<(Vec<[f64; 4]>, Vec<f64>)>> {
         let lib;
         if let Some(ref olp) = self.olp {
@@ -303,12 +325,15 @@ impl GoSamProcess {
             update =
                 Some(|inc: usize| Python::with_gil(|py| tqdm.call_method1(py, "update", (inc,))))
         }
-        let n_update = if n_points >= 100 { n_points / 100 } else { 1 };
+        let n_update = if n_points >= 1000 { n_points / 1000 } else { 1 };
         let mut result = Vec::with_capacity(n_points);
         let result = py.allow_threads(|| -> PyResult<_> {
             for i in 0..n_points {
-                let vecs = rambo(scale * scale, &masses, n_in, &mut rng);
-                let vals = lib.eval(id, &vecs, scale)?;
+                let (mut renorm_scale, vecs) = rambo((&s).into(), &masses, n_in, &mut rng);
+                if let Some(scale) = scale {
+                    renorm_scale = scale;
+                }
+                let vals = lib.eval(id, &vecs, renorm_scale)?;
                 result.push((vecs, vals));
                 if i % n_update == 0 {
                     if let Some(f) = update {

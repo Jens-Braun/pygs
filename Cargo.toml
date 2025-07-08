@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-pyo3 = { version = "0.24", features = ["indexmap"] }
+pyo3 = { version = "0.24", features = ["indexmap", "abi3-py39"] }
 pyo3-log = "0.12"
 fastrand = "2"
 peg = "0.8"
