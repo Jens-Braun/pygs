@@ -1,5 +1,5 @@
 #!/bin/env python
-from pygs import ufo_model, GoSamProcess, AmplitudeType
+from pygs import ufo_model, GoSamProcess, AmplitudeType, Scale
 from logging import info, basicConfig
 from rich.logging import RichHandler
 from rich.console import Console
@@ -7,6 +7,7 @@ import numpy as np
 
 N_POINTS = 1_000_000
 SCALE = 1E3
+MH = 125.0
 
 if __name__ == "__main__":
 
@@ -42,7 +43,8 @@ if __name__ == "__main__":
     info("Successfully setup the process library")
 
     info(f"Sampling {N_POINTS} points from subprocess 0: 'g g -> H g'")
-    sp_0_res = proc.sample(0, SCALE, N_POINTS)
+    s = Scale.Uniform(MH**2, 1E4**2)
+    sp_0_res = proc.sample(0, s, N_POINTS, scale = SCALE)
     with open("hjet.npy", "wb") as f:
         np.save(f, np.array(
             [np.append(np.array(l[0]).flatten(), np.array(l[1][2])) for l in sp_0_res]

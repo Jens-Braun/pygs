@@ -1,12 +1,16 @@
 #!/bin/env python
-from pygs import ufo_model, GoSamProcess, AmplitudeType
+from pygs import ufo_model, GoSamProcess, AmplitudeType, Scale
 from logging import info, basicConfig
 from rich.logging import RichHandler
 from rich.console import Console
 import numpy as np
+from tqdm import tqdm
 
 N_POINTS = 1_000_000
 SCALE = 1E3
+MH = 125.0
+
+# Top Mass Range: [130, 190]
 
 if __name__ == "__main__":
 
@@ -37,14 +41,22 @@ if __name__ == "__main__":
         },)
 
     proc.add_subprocess([21, 21], [25, 25], AmplitudeType.LoopInduced)
-    with console.status("Constructing process libaray (this can take a few minutes)...", spinner="bouncingBall"):
+    with console.status("Constructing process library (this can take a few minutes)...", spinner="bouncingBall"):
         proc.setup()
     info("Successfully setup the process library")
 
     info(f"Sampling {N_POINTS} points from subprocess 0: 'g g -> H H'")
-    sp_0_res = proc.sample(0, SCALE, N_POINTS)
-    with open("gghh.npy", "wb") as f:
+    s = Scale.Uniform((2*MH)**2, 1E4**2)
+    rng = np.random.default_rng()
+    sp_0_res = []
+    masses = []
+    for _ in tqdm(range(N_POINTS)):
+        MT = rng.uniform(130, 190)
+        proc.set_parameter("MT", MT, 0.)
+        sp_0_res.append(proc.eval_random(0, s, scale = SCALE))
+        masses.append(MT)
+    with open("gghh_mass.npy", "wb") as f:
         np.save(f, np.array(
-            [np.append(np.array(l[0]).flatten(), np.array(l[1][2])) for l in sp_0_res]
+            [[*np.array(l[0]).flatten().tolist(), m, l[1][2]] for m, l in zip(masses, sp_0_res)]
         ))
-    info(f"Saved {N_POINTS} point from subprocess 0 to file 'gghh.npy'")
+    info(f"Saved {N_POINTS} point from subprocess 0 to file 'gghh_mass.npy'")

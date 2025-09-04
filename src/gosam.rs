@@ -288,6 +288,40 @@ impl GoSamProcess {
         }
     }
 
+    #[pyo3(signature = (id, s, scale = None))]
+    fn eval_random(
+        &self,
+        py: Python<'_>,
+        id: usize,
+        s: PyScale,
+        scale: Option<f64>,
+    ) -> PyResult<(Vec<[f64; 4]>, Vec<f64>)> {
+        let lib;
+        if let Some(ref olp) = self.olp {
+            lib = olp;
+        } else {
+            return Err(GoSamError::UnintializedError("eval".to_owned()))?;
+        }
+        let masses = self.subprocesses[id]
+            .incoming_pdg
+            .iter()
+            .chain(self.subprocesses[id].outgoing_pdg.iter())
+            .map(|i| self.model.get_mass(*i))
+            .collect::<Vec<_>>();
+        let n_in = self.subprocesses[id].incoming_pdg.len();
+        let mut rng = fastrand::Rng::new();
+
+        let result = py.allow_threads(|| -> PyResult<_> {
+            let (mut renorm_scale, vecs) = rambo((&s).into(), &masses, n_in, &mut rng);
+            if let Some(scale) = scale {
+                renorm_scale = scale;
+            }
+            let vals = lib.eval(id, &vecs, renorm_scale)?;
+            return Ok((vecs, vals));
+        });
+        return result;
+    }
+
     #[pyo3(signature = (id, s, n_points, scale = None))]
     fn sample(
         &self,
@@ -326,8 +360,8 @@ impl GoSamProcess {
                 Some(|inc: usize| Python::with_gil(|py| tqdm.call_method1(py, "update", (inc,))))
         }
         let n_update = if n_points >= 1000 { n_points / 1000 } else { 1 };
-        let mut result = Vec::with_capacity(n_points);
         let result = py.allow_threads(|| -> PyResult<_> {
+            let mut result = Vec::with_capacity(n_points);
             for i in 0..n_points {
                 let (mut renorm_scale, vecs) = rambo((&s).into(), &masses, n_in, &mut rng);
                 if let Some(scale) = scale {

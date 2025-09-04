@@ -3,6 +3,7 @@ from pygs import ufo_model, GoSamProcess, AmplitudeType
 from logging import info, basicConfig
 from rich.logging import RichHandler
 from rich.console import Console
+from rich.progress import track
 import numpy as np
 from numba import jit
 
@@ -64,7 +65,7 @@ if __name__ == "__main__":
     proc = GoSamProcess(
         {"QCD": 2, "QED": 1},
         m, nlo_coupling = "QCD",
-        options = {
+        gosam_options = {
         "symmetries": "generation,family",
         "filter.lo": "lambda d: d.vertices('part6', 'anti6', 'part25') >= 1",
         "filter.nlo": "lambda d: d.vertices('part6', 'anti6', 'part25') >= 1"

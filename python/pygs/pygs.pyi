@@ -52,6 +52,9 @@ class GoSamProcess:
             list of floats with length depending on the amplitude type, see BLHA2 standard (1308.3462) for details
         """
 
+    def eval_random(self, id: int, s: Scale, scale: Optional[float] = None) -> tuple[list[list[float]], list[float]]:
+        """Same as [sample], but only sample one point."""
+
     def sample(self, id: int, s: Scale, n_points: int, scale: Optional[float] = None) -> list[tuple[list[list[float]], list[float]]]:
         """
         Evaluate subprocess `id` with energy scale `scale` at `n_points` random phase-space points (constructed by a
