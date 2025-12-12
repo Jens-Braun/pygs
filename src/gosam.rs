@@ -56,6 +56,7 @@ impl From<BLHAError> for PyErr {
 pub(crate) enum PyScale {
     Fixed(f64),
     Uniform { min: f64, max: f64 },
+    Reciprocal { min: f64, max: f64 },
 }
 
 impl From<&PyScale> for Scale<f64> {
@@ -63,6 +64,10 @@ impl From<&PyScale> for Scale<f64> {
         match value {
             PyScale::Fixed(s) => Scale::Fixed(*s),
             PyScale::Uniform { min, max } => Scale::Uniform {
+                min: *min,
+                max: *max,
+            },
+            PyScale::Reciprocal { min, max } => Scale::Reciprocal {
                 min: *min,
                 max: *max,
             },

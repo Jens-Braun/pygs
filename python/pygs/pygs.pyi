@@ -1,7 +1,8 @@
 from __future__ import annotations
+
 from enum import Enum
-from typing import Any, Optional
 from math import atan
+from typing import Any, Optional
 
 def ufo_model(path: str) -> Model:
     """Import the UFO model at the given localtion"""
@@ -18,16 +19,19 @@ class Model:
 class GoSamProcess:
     """A process backed by GoSam"""
 
-    def __new__(cls,
+    def __new__(
+        cls,
         coupling_orders: dict[str, int],
         model: Model,
         nlo_coupling: Optional[str] = None,
         contract_options: Optional[dict[str, str]] = None,
-        gosam_options: Optional[dict[str, str]] = None
+        gosam_options: Optional[dict[str, str]] = None,
     ) -> GoSamProcess:
         "Create a new GoSam process"
 
-    def add_subprocess(self, incoming: list[int], outgoing: list[int], amplitude_type: AmplitudeType):
+    def add_subprocess(
+        self, incoming: list[int], outgoing: list[int], amplitude_type: AmplitudeType
+    ):
         """Add a new subprocess"""
 
     def setup(self):
@@ -52,10 +56,14 @@ class GoSamProcess:
             list of floats with length depending on the amplitude type, see BLHA2 standard (1308.3462) for details
         """
 
-    def eval_random(self, id: int, s: Scale, scale: Optional[float] = None) -> tuple[list[list[float]], list[float]]:
+    def eval_random(
+        self, id: int, s: Scale, scale: Optional[float] = None
+    ) -> tuple[list[list[float]], list[float]]:
         """Same as [sample], but only sample one point."""
 
-    def sample(self, id: int, s: Scale, n_points: int, scale: Optional[float] = None) -> list[tuple[list[list[float]], list[float]]]:
+    def sample(
+        self, id: int, s: Scale, n_points: int, scale: Optional[float] = None
+    ) -> list[tuple[list[list[float]], list[float]]]:
         """
         Evaluate subprocess `id` with energy scale `scale` at `n_points` random phase-space points (constructed by a
         RAMBO generator).
@@ -81,6 +89,7 @@ class AmplitudeType(Enum):
     - Loop
     - LoopInduced
     """
+
     Tree: ...
     scTree: ...
     scTree2: ...
@@ -94,6 +103,9 @@ class Scale(Enum):
 
     - Fixed: fixed energy scale
     - Uniform: uniformly sampled energy scale in some range
+    - Reciprocal: sampled according to a 1/s PDF in some range
     """
+
     Fixed: ...
-    Uniform:...
+    Uniform: ...
+    Reciprocal: ...

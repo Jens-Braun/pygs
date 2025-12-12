@@ -4,6 +4,7 @@ use num_traits::{Float, FloatConst};
 pub enum Scale<F: Float> {
     Fixed(F),
     Uniform { min: F, max: F },
+    Reciprocal { min: F, max: F },
 }
 
 /// Generic RAMBO phase-space generator (10.1016/0010-4655(86)90119-0) based on the Fortran implementation of GoSam.
@@ -16,6 +17,9 @@ pub(crate) fn rambo<F: Float + FloatConst>(
     let s = match s {
         Scale::Fixed(s) => s,
         Scale::Uniform { min, max } => rng.range(min, max),
+        Scale::Reciprocal { min, max } => {
+            min * (rng.range(F::zero(), F::one()) * (max / min).ln()).exp()
+        }
     };
     let two: F = F::one() + F::one();
     let mut vecs = vec![[F::zero(); 4]; masses.len()];
@@ -102,7 +106,7 @@ fn newton<F: Float>(s: F, vecs: &[[F; 4]], masses: &[F]) -> F {
 
     let mut x = two.recip();
     let mut n_iter = 0;
-    while fx.abs() > prec && n_iter < 50 {
+    while fx.abs() > prec && n_iter < 4000 {
         fx = neg_sqrt_s;
         let mut fpx = F::zero();
         let x_sq = x * x;
